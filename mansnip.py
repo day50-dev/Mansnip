@@ -1,0 +1,401 @@
+#!/usr/bin/env python3
+import sys, re, os, logging, math, subprocess
+
+# less and others have a number of things like this 
+#
+#       -hn or --max-back-scroll=n
+#              Specifies  a  maximum number of lines to scroll backward.  If it
+#              is necessary to scroll backward more than n lines, the screen is
+#              repainted in a forward direction instead.  (If the terminal does
+#              not have the ability to scroll backward, -h0 is implied.)
+#
+# Because of this the only *real* reliable system is to look at the formatting, 
+# which normally gets stripped so we have to be a bit more clever and be a full
+# wrapper to man as opposed to just parsing <stdout> 
+#
+
+logging.basicConfig(level=(os.environ.get('LOGLEVEL') or 'critical').upper())
+
+def mansnip(page: str, query: list, environ: dict):
+    buf = []
+    llm = 'MANSNIP_LLM' in environ
+
+    try:
+        # Some people use cygwin
+        # You may gladly throw me in python prison for this line...
+        cmd = ['/usr/bin/man' if os.path.exists('/usr/bin') else 'man'] + sys.argv[1:cutoff]
+        logging.info(cmd)
+
+        if llm:
+            env["MANWIDTH"] = "8192"
+
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=environ,
+            text=True 
+        )
+        man_input, stderr = proc.communicate()
+
+        if llm:
+             buf.append(f"Excerpts from man {page}:")
+
+    except Exception as ex:
+        from textwrap import dedent
+        print(dedent("""\
+        ✂ mansnip usage ✂
+          Mansnip works much like man does only it takes query strings after the
+          page you're looking to read. The syntax is generally:
+
+        $ mansnip [ section ] page [ query0 query1 ... queryN ]
+
+          For instance, if you want to find out what say, the xzv and f options
+          in tar do you can do 
+
+        $ mansnip tar -x -z -v -f
+
+          But wait! There's more! We are in the world of LLM so you can do
+          MANSNIP_LLM=1 mansnip tar -x -z -v -f
+
+          and then get a snapshot that you can just dump into your context window
+
+          Have fun."""))
+        logging.info(ex)
+        sys.exit(-1)
+
+    opts = '|'.join(query)
+
+    def matcher(term):
+        return ''.join([
+            r'^\s*',
+            r'(',
+                     # lsof uses +|- syntax,
+                    r'(\+\||)',
+
+                    # the term itself
+                    r'({})',
+
+                    # ffmpeg uses [ at times (see hwaccel), many things use ',' to show a second option.
+                    # mmcli uses = a lot of the times
+                    r'([\s_\[=].*|, .*|)',
+                r'|',
+                    # this is for the long options, sometimes (git config) specified by commas
+                    #'-.*\s({})',
+                    r'-.*({})',
+
+                    # and kinda our same capture from above
+                    r'([\s_\[=].*|)',
+             r')$'
+           ]).format(term, term)
+
+    # the thing we are genuinely looking for
+    my_re = matcher(opts)
+
+    # a general purpose getopts re
+    getopts_simple_re = r'^\s+(-{1,2}\w+\s?\w*)+\s*$'
+
+    logging.info("The re for this search: {}".format(my_re))
+
+    is_def = False
+    line_def = False
+    multiline_def = False
+    stack_start = False
+
+    #
+    # We want to be able to detect None versus 0 without the hassles
+    # of False == 0 (which I know can be avoided, sure, ok fine, but
+    # why introduce the possibility of bugs when you can easily avoid
+    # that possibility?)
+    #
+    term_indent = None
+
+    buf_start = False
+    buf = []
+
+    indent_window = []
+    stack_guess = []
+    stack_indent = []
+    last_stack_guess = []
+
+    # Words we can just leave out of the breadcrumb.
+    filler_terms = ['DESCRIPTION','OPTIONS']
+
+    clean_ansi = lambda w: re.sub(r'(.\x08|\x1B\[\d*m)', '', w)
+
+    #
+    # There's lots of let's say "creative" ways to format man pages, so
+    # we have a plain-text version in case our sophisticated searching
+    # method fails.
+    #
+    man_input_plain = clean_ansi(man_input).split('\n')
+    man_input = man_input.split('\n')
+
+    #
+    # We try to output something nice and readable. If the input is a
+    # lot of lines, say zshall (all of zsh), then we set aside a bit of
+    # space for the indentation.
+    #
+    rs = 5 if len(man_input) < 1e4 else 7
+
+    #
+    # Essentially we want to reduce our chances of false positives.
+    # Because there's so many variations we can't do a single-pass
+    # catch-all for everything. But what we can do is cast a somewhat
+    # wide net with the regexs and then do a second-pass rejection
+    # test with this function, essentially just looking for prose.
+    def random_word_test(line):
+        pass
+
+    line_num = -1
+
+    while line_num + 1 < len(man_input):
+        line_num += 1
+
+        line = man_input[line_num].strip('\n')
+
+        #
+        # Establish the "indent", this is crucial to how essentially 
+        # everything works.
+        #
+        indent = re.match(r'^(\s*)', line).end()
+        indent_window = indent_window[-2:] + [indent]
+
+        if len(line):
+
+            # Our nice stack guessing system essentially keeps a stack
+            # of the indents and then based on the current indent either
+            # pushes or pops on to the stack.
+
+            #
+            # This one is kinda tricky. If we are looking for -z in say, zshall
+            #
+            #         zcompile [ -U ] [ -z | -k ] [ -R | -M ] file [ name ... ]
+            #         zcompile -ca [ -m ] [ -R | -M ] file [ name ... ]
+            #         zcompile -t file [ name ... ]
+            #               -z  
+            #
+            # Is what we want. So what we want is a longer version of what we currently have
+            #
+            # But it gets trickier since we suppress empty lines in this algorithm.
+            # 
+            #         r      Same as fc -e -.
+            #
+            #         read [ -rszpqAclneE ] [ -t [ num ] ] [ -k [ num ] ] [ -d delim ]
+            #              [ -u n ] [ name[?prompt] ] [ name ...  ]
+            #
+            # Also from zsh, will be interpreted as a group, so we have to just this once
+            # use our real indent tracker to catch it.
+            #
+            if len(stack_indent) and indent == stack_indent[-1] and indent_window[-2] != 0:
+                #
+                # Historically string growing like this was always dog, I don't know
+                # if it's still super slow. Mostly of the time we won't actually be using
+                # it. Since we aren't doing a stream, we could just reconstruct it by
+                # storing "pointers" (indexes here) ... sometime in the future.
+                #
+                stack_guess[-1] += '\n' + man_input[line_num]
+
+            else:
+                while len(stack_indent) and indent <= stack_indent[-1]:
+                    stack_indent.pop()
+                    stack_guess.pop()
+
+            if not len(stack_indent) or indent > stack_indent[-1]:
+                stack_indent.append(indent)
+                stack_guess.append(man_input[line_num].strip())
+
+        if not len(buf):
+
+            # See if our ANSI escaped or plain text version has what we are looking for.
+            # yes that makes it a bit slower, but not as slow as doing it manually.
+            res = re.match(my_re, line) or re.match(my_re, man_input_plain[line_num])
+
+            if res:
+                logging.info("matched : {}".format(line))
+                #
+                # This is sheer frantic handwaving for things like this (From bash)
+                #
+                #  declare [-aAfFgilnrtux] [-p] [name[=value] ...]
+                #  typeset [-aAfFgilnrtux] [-p] [name[=value] ...]
+                #
+                # Surely, if I search for "declare" this is what I want, but it
+                # it breaks our classic rules so instead we try a number of 
+                # imperfet guesses.
+                #
+                # The first one is back-searching the indent margins. Generally
+                # there's a space before we see this and then some end of a 
+                # previous block that was indented further. soooo yeah we
+                # look for that.
+                #
+                if indent_window[0] > indent and indent_window[1] == 0:
+                    is_def = True
+
+                #
+                # From man 7 man we get things like this:
+                #
+                #  .I  Italics
+                #
+                #  .IB Italics alternating with bold
+                #
+                #  .IR Italics alternating with Roman
+                #
+                elif indent_window[0] == indent and indent_window[1] == 0:
+                    line_def = True
+
+                buf.append(line)
+                buf_start = line_num
+                stack_start = stack_guess[:]
+                is_multiline_def = True
+                term_indent = indent
+
+        elif term_indent != None:
+            logging.info("consider: {}".format(line))
+
+            #
+            # This tests if we have a format like in wget, something like
+            #
+            #   -r
+            #   --recursive
+            #       Turn on recursive retrieving.    The default maximum depth is 5.
+            #
+            #   -l depth
+            #   --level=depth
+            #       Specify recursion maximum depth level depth.
+            #
+            # In this case we're ok with not increasing indentation as long as we match
+            #
+            # What is this boolean flippin' nonsense then? We allow essentially the following
+            #
+            #   --A           <- These three should be chained.
+            #   --B
+            #   --C
+            #     blah blah   <- Once we reach this indent further
+            #     blah blah   <- chaining should be prohibited 
+            #
+            #   --D           <- This should be excluded.
+            #
+            if is_multiline_def:
+                if not (re.match(getopts_simple_re, line) or re.match(getopts_simple_re, man_input_plain[line_num])):
+                    is_multiline_def = False
+
+            # If our indent is zero and there's some text (subsection heading)
+            if (indent == 0 and len(line)) or (
+                  indent > 1 and (
+                      indent < term_indent or (
+                          # If we have the same indentation but we've determined it's a 
+                          # "multiline" definition.
+                          indent == term_indent and not ( 
+                              is_def or is_multiline_def
+                          )
+                     )
+               )):
+                spacer = '\n' + ' ' * rs
+                logging.info("Current rows: {}".format( len(buf)) )
+
+
+                if (len(buf) == 2 and indent == term_indent and line_def) or len(buf) > 1:
+                    #
+                    # This is a lot of fancy formatting. We want the
+                    # vertical whitespace between the heading and snippet to be consistent.
+                    # If we simply removed the empty lines then it would dump the interstitial
+                    # (as in, in the middle of our content) empty lines. so we want to get rid
+                    # of leading and trailing new lines.
+                    #
+                    # So we join the array, strip out the trailing new lines, then split it up
+                    # again. eh, it's fine.
+                    #
+                    buf = '\n'.join(buf).strip('\n').split('\n')
+
+                    #
+                    # If we show the same breadcrumb every time it gets kinda laborious and 
+                    # repetitive so we cleverly hide the redundancy. 
+                    #
+                    stack_small = stack_start[:]
+                    for i in range(0, min(len(last_stack_guess),len(stack_start))):
+                        if last_stack_guess[i] == stack_start[i]:
+                            stack_small = stack_small[1:]
+
+                    last_stack_guess = stack_start[:]
+
+                    if len(stack_small) > 1:
+                        if clean_ansi(stack_small[0]) in filler_terms:
+                            stack_small = stack_small[1:]
+                    #
+                    # Now we have to figure out how to print it out to make it look right.
+                    # Sometimes it can be inline. The %/fmt double formatting trick comes 
+                    # in handle here.
+                    #
+                    if len(stack_small) > 1:
+                        stack_print = stack_small[0]
+                        if len(stack_small) > 2:
+                            if not llm:
+                                stack_print += spacer + spacer.join(stack_small[1:-1])
+                        stack_print += "\n"
+                    else:
+                        stack_print = ''
+                        buf[0] = re.sub(r'^\s{%d}' % rs, '', buf[0])
+
+                    if llm:
+                        for x in range(len(buf)):
+                            i = buf[x]
+                            pre = ''
+                            leading = len(i) - len(i.lstrip())
+
+                            if leading < 2 and len(i) > 2:
+                                pre = '# '
+                            elif leading < 8 and len(i) > 5:
+                                pre = '## '
+                            else:
+                                pre = ' ' * math.floor(leading/8)
+                            buf[x] = pre + re.sub(r'\s+', ' ', i[leading:])
+
+                        if len(stack_print) > 0:
+                            stack_print = "# " + stack_print
+
+
+                    # This makes the tests more portable
+                    if llm:
+                        print(clean_ansi("{}{}\n".format(stack_print, '\n'.join(buf))))
+                    else:
+                        print(("{:<%d}{}{}\n" % rs).format(buf_start, stack_print, '\n'.join(buf)))
+
+                # if this was the line we decided to reset everything on then we should actually process
+                # it again because it could ALSO be the first line of a new match.
+                line_num -= 1
+                buf = []
+                term_indent = None
+                is_def = False
+            else:
+                # Once our formatting goes in we have to reset it 
+                if is_def and indent > term_indent:
+                    is_def = False
+                    
+                buf.append(line)
+
+if __name__ == '__main__':
+    logging.basicConfig(level=(os.environ.get('LOGLEVEL') or 'critical').upper())
+    llm = 'MANSNIP_LLM' in os.environ
+
+    if len(sys.argv) < 3:
+        raise Exception("Not enough params")
+
+    local_env = os.environ.copy()
+
+    # This allows us to do mansnip <num> <page> or just <page> 
+    cutoff = 3 if sys.argv[1].isnumeric() else 2
+    local_env['MAN_KEEP_FORMATTING'] = '1'
+
+    # Some people use cygwin
+    # You may gladly throw me in python prison for this line...
+    cmd = ['/usr/bin/man' if os.path.exists('/usr/bin') else 'man'] + sys.argv[1:cutoff]
+    logging.info(cmd)
+
+    env = os.environ.copy()
+    if llm:
+        local_env["MANWIDTH"] = "8192"
+
+    page = sys.argv[1:cutoff]
+    query = sys.argv[cutoff:]
+    mansnip(page, query, env)
+
