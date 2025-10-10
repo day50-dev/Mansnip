@@ -14,9 +14,9 @@ import sys, re, os, logging, math, subprocess
 # wrapper to man as opposed to just parsing <stdout> 
 #
 
-logging.basicConfig(level=(os.environ.get('LOGLEVEL') or 'critical').upper())
-
 def mansnip(page: str, query: list, environ: dict):
+    logging.basicConfig(level=(environ.get('LOGLEVEL') or 'critical').upper())
+
     buf = []
     llm = 'MANSNIP_LLM' in environ
 

@@ -2,3 +2,5 @@ build
 dist
 mansnip_kristopolous.egg-info
 pyupload
+__pycache__
+.direnv
