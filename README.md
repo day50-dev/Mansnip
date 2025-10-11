@@ -22,6 +22,8 @@ $ MANSNIP_LLM=1 mansnip bash complete | token-count # with new llm compaction!
 ```
 That's a 98% reduction! Sweet.
 
+There's also a ready-to-go MCP server for it in `mcp-server.py`. 
+
 Just `pip install mansnip-kristopolous`
 
 ## My classic 2020 pitch below!
