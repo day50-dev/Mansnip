@@ -21,6 +21,9 @@ def mansnip(section: str, page: str, query: list, environ: dict):
     llm = 'MANSNIP_LLM' in environ
     res_buf = []
 
+    for n in environ.keys():
+        environ[n] = str(environ[n])
+
     environ['MAN_KEEP_FORMATTING'] = '1'
     try:
         # Some people use cygwin
@@ -63,7 +66,7 @@ def mansnip(section: str, page: str, query: list, environ: dict):
           and then get a snapshot that you can just dump into your context window
 
           Have fun."""))
-        logging.info("unhandled", exc_info=True)
+        logging.error("unhandled", exc_info=True)
         sys.exit(-1)
 
     opts = '|'.join(query)
@@ -377,7 +380,7 @@ def mansnip(section: str, page: str, query: list, environ: dict):
     return "\n".join(res_buf)
 
 if __name__ == '__main__':
-    logging.basicConfig(level=(os.environ.get('LOGLEVEL') or 'critical').upper())
+    logging.basicConfig(level=(os.environ.get('LOGLEVEL') or 'warning').upper())
 
     if len(sys.argv) < 3:
         raise Exception("Not enough params")
