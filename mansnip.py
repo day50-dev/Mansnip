@@ -14,20 +14,22 @@ import sys, re, os, logging, math, subprocess
 # wrapper to man as opposed to just parsing <stdout> 
 #
 
-def mansnip(page: str, query: list, environ: dict):
+def mansnip(section: str, page: str, query: list, environ: dict):
     logging.basicConfig(level=(environ.get('LOGLEVEL') or 'critical').upper())
 
     buf = []
     llm = 'MANSNIP_LLM' in environ
+    res_buf = []
 
+    environ['MAN_KEEP_FORMATTING'] = '1'
     try:
         # Some people use cygwin
         # You may gladly throw me in python prison for this line...
-        cmd = ['/usr/bin/man' if os.path.exists('/usr/bin') else 'man'] + sys.argv[1:cutoff]
+        cmd = ['/usr/bin/man' if os.path.exists('/usr/bin') else 'man'] + list(filter(None, [section, page]))
         logging.info(cmd)
 
         if llm:
-            env["MANWIDTH"] = "8192"
+            environ["MANWIDTH"] = "8192"
 
         proc = subprocess.Popen(
             cmd,
@@ -61,7 +63,7 @@ def mansnip(page: str, query: list, environ: dict):
           and then get a snapshot that you can just dump into your context window
 
           Have fun."""))
-        logging.info(ex)
+        logging.info("unhandled", exc_info=True)
         sys.exit(-1)
 
     opts = '|'.join(query)
@@ -70,7 +72,7 @@ def mansnip(page: str, query: list, environ: dict):
         return ''.join([
             r'^\s*',
             r'(',
-                     # lsof uses +|- syntax,
+                    # lsof uses +|- syntax,
                     r'(\+\||)',
 
                     # the term itself
@@ -353,12 +355,11 @@ def mansnip(page: str, query: list, environ: dict):
                         if len(stack_print) > 0:
                             stack_print = "# " + stack_print
 
-
                     # This makes the tests more portable
                     if llm:
-                        print(clean_ansi("{}{}\n".format(stack_print, '\n'.join(buf))))
+                        res_buf.append(clean_ansi("{}{}\n".format(stack_print, '\n'.join(buf))))
                     else:
-                        print(("{:<%d}{}{}\n" % rs).format(buf_start, stack_print, '\n'.join(buf)))
+                        res_buf.append(("{:<%d}{}{}\n" % rs).format(buf_start, stack_print, '\n'.join(buf)))
 
                 # if this was the line we decided to reset everything on then we should actually process
                 # it again because it could ALSO be the first line of a new match.
@@ -373,29 +374,24 @@ def mansnip(page: str, query: list, environ: dict):
                     
                 buf.append(line)
 
+    return "\n".join(res_buf)
+
 if __name__ == '__main__':
     logging.basicConfig(level=(os.environ.get('LOGLEVEL') or 'critical').upper())
-    llm = 'MANSNIP_LLM' in os.environ
 
     if len(sys.argv) < 3:
         raise Exception("Not enough params")
 
-    local_env = os.environ.copy()
-
     # This allows us to do mansnip <num> <page> or just <page> 
-    cutoff = 3 if sys.argv[1].isnumeric() else 2
-    local_env['MAN_KEEP_FORMATTING'] = '1'
-
-    # Some people use cygwin
-    # You may gladly throw me in python prison for this line...
-    cmd = ['/usr/bin/man' if os.path.exists('/usr/bin') else 'man'] + sys.argv[1:cutoff]
-    logging.info(cmd)
+    if sys.argv[1].isnumeric():
+        section = sys.argv[1]
+        page = sys.argv[2]
+        query = sys.argv[3:]
+    else:
+        section = ''
+        page = sys.argv[1]
+        query = sys.argv[1:]
 
     env = os.environ.copy()
-    if llm:
-        local_env["MANWIDTH"] = "8192"
-
-    page = sys.argv[1:cutoff]
-    query = sys.argv[cutoff:]
-    mansnip(page, query, env)
+    print(mansnip(section, page, query, env))
 

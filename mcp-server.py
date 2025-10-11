@@ -9,7 +9,7 @@ from mcp.types import Tool, TextContent
 import mansnip
 page='bash'
 query='complete'
-print(mansnip.mansnip(page, query, {'LOGLEVEL': 'debug', 'MANSNIP_LLM': 1}))
+print(mansnip.mansnip("", page, query, {'LOGLEVEL': 'debug', 'MANSNIP_LLM': 1}))
 sys.exit(0)
 
 app = Server("manpage-query")
@@ -23,6 +23,10 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
+                    "section": {
+                        "type": "string",
+                        "description": "man page section if needed for disambiguation"
+                    },
                     "manpage": {
                         "type": "string",
                         "description": "man page to retrieve"
@@ -38,11 +42,11 @@ async def list_tools() -> list[Tool]:
     ]
 
 @app.call_tool()
-async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+async def call_tool(section: str, name: str, arguments: dict) -> list[TextContent]:
     if name == "manpage_query":
         page = arguments.get("manpage")
         query = arguments.get("query")
-        res = mansnip.mansnip(page, query, {'MANSNIP_LLM': 1})
+        res = mansnip.mansnip(section, page, query, {'MANSNIP_LLM': 1})
         return [TextContent(type="text", text=res)]
     
     raise ValueError(f"Unknown tool: {name}")
