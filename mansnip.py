@@ -32,7 +32,8 @@ def mansnip(section: str, page: str, query: list, environ: dict):
         logging.info(cmd)
 
         if llm:
-            environ["MANWIDTH"] = "8192"
+            # macos has a cutoff of 1000 for some reason. Good enough
+            environ["MANWIDTH"] = "1000"
 
         proc = subprocess.Popen(
             cmd,
