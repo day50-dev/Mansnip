@@ -394,7 +394,7 @@ if __name__ == '__main__':
     else:
         section = ''
         page = sys.argv[1]
-        query = sys.argv[1:]
+        query = sys.argv[2:]
 
     env = os.environ.copy()
     print(mansnip(section, page, query, env))
