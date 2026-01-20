@@ -24,7 +24,7 @@ That's a 98% reduction! Sweet.
 
 There's also a ready-to-go MCP server for it in `mcp-server.py`. 
 
-Just `pip install mansnip-kristopolous`
+Just `pip install mansnip`
 
 ## My classic 2020 pitch below!
 
@@ -70,7 +70,7 @@ But wait, there's more! You'll also get the line number and hierarchical context
 
 *We're still not finished yet!*
 
-You'll also get to install it easily [through pypi](https://pypi.org/project/mansnip-kristopolous/). 
+You'll also get to install it easily [through pypi](https://pypi.org/project/mansnip/). 
 
 Here's how do it 
 
