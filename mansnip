@@ -386,6 +386,13 @@ if __name__ == '__main__':
     if len(sys.argv) < 3:
         raise Exception("Not enough params")
 
+    env = os.environ.copy()
+
+    # We're going to be special here.
+    if sys.argv[1] == '--llm':
+        env['MANSNIP_LLM'] = 1
+        sys.argv.pop(0)
+
     # This allows us to do mansnip <num> <page> or just <page> 
     if sys.argv[1].isnumeric():
         section = sys.argv[1]
@@ -396,6 +403,5 @@ if __name__ == '__main__':
         page = sys.argv[1]
         query = sys.argv[2:]
 
-    env = os.environ.copy()
     print(mansnip(section, page, query, env))
 

@@ -7,6 +7,10 @@ You can now intelligently mansnip into your context window by setting an environ
 
 ```bash
 $ MANSNIP_LLM=1 mansnip ...
+
+~or~
+
+$ mansnip --llm ...
 ```
 
 This will do a variety of things (try it yourself) that optimize for minimal token-length when using an llm. 
