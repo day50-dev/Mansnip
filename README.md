@@ -1,5 +1,6 @@
-## Name change
-On pypi `kristopolous-mansnip` was the old name. It's now just mansnip.
+## Updates
+* **2026-01-19**: On PyPi `kristopolous-mansnip` has been renamed to just `mansnip`.
+* **2026-01-18**: `--llm` has been added for easier invocation of the smaller token version
 
 ## Updates for the AI era!
 
