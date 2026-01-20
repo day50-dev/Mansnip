@@ -1,3 +1,6 @@
+## Name change
+On pypi `kristopolous-mansnip` was the old name. It's now just mansnip.
+
 ## Updates for the AI era!
 
 You can now intelligently mansnip into your context window by setting an environment variable like this:
