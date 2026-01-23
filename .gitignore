@@ -1,5 +1,6 @@
 build
 dist
+mansnip.egg-info/
 mansnip_kristopolous.egg-info
 pyupload
 __pycache__
