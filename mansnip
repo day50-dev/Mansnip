@@ -403,7 +403,6 @@ if __name__ == '__main__':
         page = sys.argv[1]
         query = sys.argv[2:]
 
-    env = os.environ.copy()
     res = mansnip(section, page, query, env)
     # this is for llms which really don't understand the concept
     if len(res) == 0:
