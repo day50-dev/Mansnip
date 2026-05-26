@@ -1,22 +1,30 @@
-## Updates
-* **2026-01-19**: On PyPi `kristopolous-mansnip` has been renamed to just `mansnip`.
-* **2026-01-18**: `--llm` has been added for easier invocation of the smaller token version
+<p align="center">
+<img width="750" alt="logo_750" src="https://github.com/user-attachments/assets/ad687a4d-8abe-4c60-bf89-6a24a04f447c" />
+<br/>
+<a href=https://pypi.org/project/mansnip><img src=https://badge.fury.io/py/mansnip.svg/></a>  
+</p>
 
-## Updates for the AI era!
+When LLMs use the Internet instead of the local documentation on the computer its running on, they make all kinds of mistakes: compatibility and deprecated usage, missing obvious things. 
 
-You can now intelligently mansnip into your context window by setting an environment variable like this:
+context7 fixes this only for things in context7. What about everything else? 
+
+Get your models to use the right documentation, locally, for the software you actually have, effeciently.
+
+**Mansnip**, part of the [DAY50](https://day50.dev) suite of open-source tools for AI workflows, solves the problem of irrelevant documentation going to the context window.
+
+You can intelligently put only the parts of manpages you care about into your context window:
 
 ```bash
-$ MANSNIP_LLM=1 mansnip ...
-
-~or~
-
-$ mansnip --llm ...
+$ uvx mansnip --llm bash bind
 ```
 
-This will do a variety of things (try it yourself) that optimize for minimal token-length when using an llm. 
+And your terminal window:
 
-Compare various approaches for finding the documentation for bash's complete command: 
+```bash
+$ uvx mansnip bash bind
+```
+
+Compare the token cost of various approaches for finding the documentation for bash's complete command: 
 
 ```bash
 $ man bash | token-count                            # whole page
@@ -25,22 +33,25 @@ $ man bash | grep -C 3 complete | token-count       # naive approach with a bunc
 8833
 $ mansnip bash complete | token-count               # mansnip without llm feature
 2908
-$ MANSNIP_LLM=1 mansnip bash complete | token-count # with new llm compaction!
+$ mansnip --llm bash complete | token-count         # with llm compaction!
 1624
 ```
 That's a 98% reduction! Sweet.
 
 There's also a ready-to-go MCP server for it in `mcp-server.py`. 
 
-Just `pip install mansnip`
+Just `pip/pipx/uv tool install mansnip`
 
 ## My classic 2020 pitch below!
 
 <p align="center">
-  
-[![Video](https://9ol.es/vid.jpg)](http://www.youtube.com/watch?v=3GT1J-ejM3Q)
 
-> "As seen on YouTube!" (click image, it's only 1min 45sec)
+
+
+https://github.com/user-attachments/assets/1fb76ac3-54e7-48dd-b349-4c7fa89016c6
+
+
+["As seen on YouTube!"](https://www.youtube.com/watch?v=3GT1J-ejM3Q)
 </p>
 
 ----
