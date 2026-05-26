@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mansnip"
+version = "0.6.3"
+description = "Finding just the snippets in man page you care about"
+readme = "README.md"
+requires-python = ">=3.2"
+license = "MIT"
+authors = [
+    {name = "Chris McKenzie", email = "kristopolous@yahoo.com"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = ["mcp"]
+
+[project.urls]
+Homepage = "https://github.com/kristopolous/mansnip"
+
+[tool.setuptools]
+script-files = ["mansnip"]
