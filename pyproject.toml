@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mansnip"
-version = "0.6.3"
+version = "0.6.4"
 description = "Finding just the snippets in man page you care about"
 readme = "README.md"
 requires-python = ">=3.2"
