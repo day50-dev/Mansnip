@@ -246,7 +246,7 @@ def mansnip(section: str, page: str, query: list, environ: dict):
                 #
                 #  .IR Italics alternating with Roman
                 #
-                elif indent_window[0] == indent and indent_window[1] == 0:
+                elif len(indent_window) > 1 and (indent_window[0] == indent and indent_window[1] == 0):
                     line_def = True
 
                 buf.append(line)
