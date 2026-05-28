@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, re, os, logging, math, subprocess
+import sys, re, os, logging, math, subprocess, importlib.metadata
 
 # less and others have a number of things like this 
 #
@@ -385,6 +385,11 @@ if __name__ == '__main__':
 
     import argparse
 
+    try:
+        VERSION = importlib.metadata.version('mansnip')
+    except:
+        VERSION = "git"
+
     parser = argparse.ArgumentParser(
         description='Search man pages for specific options/flags.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -405,7 +410,8 @@ But wait! There's more! We are in the world of LLM so you can do:
 
 and then get a snapshot that you can just dump into your context window."""
     )
-    parser.add_argument('--llm', action='store_true', help='Output in LLM-friendly format')
+    parser.add_argument('-l', '-llm', '--llm', action='store_true', help='Output in LLM-friendly format')
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + VERSION)
     parser.add_argument('positional', nargs='*', metavar='...',
                         help='[section] page [query ...]')
 
