@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, re, os, logging, math, subprocess, importlib.metadata
+import sys, re, os, logging, math, subprocess
 
 # less and others have a number of things like this 
 #
@@ -383,13 +383,6 @@ def mansnip(section: str, page: str, query: list, environ: dict):
 if __name__ == '__main__':
     logging.basicConfig(level=(os.environ.get('LOGLEVEL') or 'warning').upper())
 
-    import argparse
-
-    try:
-        VERSION = importlib.metadata.version('mansnip')
-    except:
-        VERSION = "git"
-
     # argumentparser here is wrong. it will hoover up the things you are looking for
     # well there's ways to make it not ok but now you're fighting the tool so instead,
     # don't use it.
@@ -418,20 +411,25 @@ But wait! There's more! We are in the world of LLM so you can do:
   MANSNIP_LLM=1 mansnip tar -x -z -v -f
 
 and then get a snapshot that you can just dump into your context window."""
-    fa = sys.argv[1]
-    args = sys.argv
+    args = sys.argv[1:]
     env = os.environ.copy()
-    if fa in ('-h', '--help'):
-        print( help_txt )
+    if len(args) == 0 or args[0] in ('-h', '--help'):
+        print(help_txt)
+        sys.exit(0)
+
+    fa = args[0]
+    if fa in ('-v', '--version'):
+        import importlib.metadata
+        try:
+            VERSION = importlib.metadata.version('mansnip')
+        except:
+            VERSION = "git"
+        print(VERSION)
         sys.exit(0)
 
     if fa in ('-l', '-llm', '--llm'):
-        args = sys.argv[2:]
+        args = args[1:]
         env['MANSNIP_LLM'] = '1'
-
-    if fa in ('-v', '--version'):
-        print(VERSION)
-        sys.exit(0)
 
     # This allows us to do mansnip <num> <page> or just <page>
     if args[0].isnumeric():
@@ -444,7 +442,7 @@ and then get a snapshot that you can just dump into your context window."""
         query = args[1:]
 
     if not page:
-        parser.print_help()
+        print(help_txt)
         sys.exit(1)
 
     res = mansnip(section, page, query, env)
