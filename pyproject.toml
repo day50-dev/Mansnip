@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mansnip"
 version = "0.6.6"
-description = "Finding just the snippets in man page you care about"
+description = "Finding just the snippets in man page you and your model care about"
 readme = "README.md"
 requires-python = ">=3.2"
 license = "MIT"
@@ -19,7 +19,7 @@ classifiers = [
 dependencies = ["mcp"]
 
 [project.urls]
-Homepage = "https://github.com/kristopolous/mansnip"
+Homepage = "https://github.com/day50-dev/llm-manpage-tool.git"
 
 [tool.setuptools]
 script-files = ["mansnip"]
