@@ -62,7 +62,7 @@ def mansnip(section: str, page: str, query: list, environ: dict):
         $ mansnip tar -x -z -v -f
 
           But wait! There's more! We are in the world of LLM so you can do
-          MANSNIP_LLM=1 mansnip tar -x -z -v -f
+          mansnip --llm tar -x -z -v -f
 
           and then get a snapshot that you can just dump into your context window
 
@@ -390,10 +390,19 @@ if __name__ == '__main__':
     except:
         VERSION = "git"
 
-    parser = argparse.ArgumentParser(
-        description='Search man pages for specific options/flags.',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=r"""
+    # argumentparser here is wrong. it will hoover up the things you are looking for
+    # well there's ways to make it not ok but now you're fighting the tool so instead,
+    # don't use it.
+    help_txt="""Search man pages for specific options/flags.
+
+positional arguments:
+  ...              [section] page [query ...]
+
+options:
+  -h, --help       show this help message and exit
+  -l, -llm, --llm  Output in LLM-friendly format
+  -v, --version    show program's version number and exit
+
 Mansnip works much like man does only it takes query strings after the
 page you're looking to read. The syntax is generally:
 
@@ -409,31 +418,30 @@ But wait! There's more! We are in the world of LLM so you can do:
   MANSNIP_LLM=1 mansnip tar -x -z -v -f
 
 and then get a snapshot that you can just dump into your context window."""
-    )
-    parser.add_argument('-l', '-llm', '--llm', action='store_true', help='Output in LLM-friendly format')
-    parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + VERSION)
-    parser.add_argument('positional', nargs='*', metavar='...',
-                        help='[section] page [query ...]')
-
-    args, unknown = parser.parse_known_args()
-    pos = args.positional + unknown
-    if not pos:
-        parser.print_help()
-        sys.exit(1)
+    fa = sys.argv[1]
+    args = sys.argv
     env = os.environ.copy()
-    # We're going to be special here.
-    if args.llm:
+    if fa in ('-h', '--help'):
+        print( help_txt )
+        sys.exit(0)
+
+    if fa in ('-l', '-llm', '--llm'):
+        args = sys.argv[2:]
         env['MANSNIP_LLM'] = '1'
 
+    if fa in ('-v', '--version'):
+        print(VERSION)
+        sys.exit(0)
+
     # This allows us to do mansnip <num> <page> or just <page>
-    if pos[0].isnumeric():
-        section = pos[0]
-        page = pos[1] if len(pos) > 1 else ''
-        query = pos[2:]
+    if args[0].isnumeric():
+        section = args[0]
+        page = args[1] if len(args) > 1 else ''
+        query = args[2:]
     else:
         section = ''
-        page = pos[0]
-        query = pos[1:]
+        page = args[0]
+        query = args[1:]
 
     if not page:
         parser.print_help()
